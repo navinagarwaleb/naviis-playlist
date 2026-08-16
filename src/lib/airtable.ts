@@ -64,7 +64,7 @@ function mapPlaylistRecord(rec: any): Playlist {
     description: f.Description || null,
     createdDate: f['Created Date'] || null,
     updatedDate: f['Updated Date'] || null,
-    songCount: f['Playlist Songs']?.length || 0,
+    songCount: f._songCount || f['Playlist Songs']?.length || 0,
   };
 }
 
@@ -168,12 +168,34 @@ export async function getSongsByIds(ids: string[]): Promise<Song[]> {
 
 export async function getPlaylists(): Promise<Playlist[]> {
   const data = await airtableFetch(`${BASE}/Playlists?pageSize=100`);
-  return data.records.map(mapPlaylistRecord);
+  const playlists = data.records.map(mapPlaylistRecord);
+  // Fetch song counts efficiently
+  if (playlists.length > 0) {
+    const psData = await airtableFetch(`${BASE}/Playlist%20Songs?pageSize=100`);
+    const countMap: Record<string, number> = {};
+    for (const rec of psData.records) {
+      const entryId: string = rec.fields['Entry ID'] || '';
+      const plId = entryId.split('-')[0];
+      if (plId) countMap[plId] = (countMap[plId] || 0) + 1;
+    }
+    for (const pl of playlists) {
+      pl.songCount = countMap[pl.id] || 0;
+    }
+  }
+  return playlists;
 }
 
 export async function getPlaylist(id: string): Promise<Playlist | null> {
   const data = await airtableFetch(`${BASE}/Playlists/${id}`);
-  return mapPlaylistRecord(data);
+  const pl = mapPlaylistRecord(data);
+  // Fetch actual song count
+  const psData = await airtableFetch(`${BASE}/Playlist%20Songs?pageSize=100`);
+  const count = psData.records.filter((r: any) => {
+    const eid: string = r.fields['Entry ID'] || '';
+    return eid.startsWith(id + '-');
+  }).length;
+  pl.songCount = count;
+  return pl;
 }
 
 export async function createPlaylist(name: string, description?: string): Promise<Playlist> {
