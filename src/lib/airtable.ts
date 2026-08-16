@@ -251,13 +251,19 @@ export async function getPlaylistSongs(playlistId: string): Promise<PlaylistSong
 }
 
 export async function addSongToPlaylist(playlistId: string, songId: string, order: number): Promise<void> {
-  const now = new Date().toISOString().split('T')[0];
+  // Check for duplicate
+  const dupFormula = `{Entry ID}='${playlistId}-${songId}'`;
+  const dupUrl = `${BASE}/Playlist%20Songs?filterByFormula=${encodeURIComponent(dupFormula)}`;
+  const dupCheck = await airtableFetch(dupUrl);
+  if (dupCheck.records && dupCheck.records.length > 0) {
+    return; // Already exists, skip silently
+  }
+
   await airtableFetch(`${BASE}/Playlist%20Songs`, {
     method: 'POST',
     body: JSON.stringify({
       fields: {
         'Entry ID': `${playlistId}-${songId}`,
-        'Playlist': [playlistId],
         'Song': [songId],
         'Order': order,
       },
