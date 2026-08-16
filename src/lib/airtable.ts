@@ -10,10 +10,11 @@ const headers = {
 };
 
 async function airtableFetch(url: string, options?: RequestInit) {
+  const isGet = !options?.method || options.method === 'GET';
   const res = await fetch(url, {
     ...options,
     headers: { ...headers, ...options?.headers },
-    next: { revalidate: 30 },
+    ...(isGet ? { next: { revalidate: 30 } } : {}),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -219,7 +220,7 @@ export interface PlaylistSongEntry {
 }
 
 export async function getPlaylistSongs(playlistId: string): Promise<PlaylistSongEntry[]> {
-  const formula = `{Playlist}='${playlistId}'`;
+  const formula = `FIND('${playlistId}-', {Entry ID})`;
   const url = `${BASE}/Playlist%20Songs?pageSize=100&filterByFormula=${encodeURIComponent(formula)}&sort%5B0%5D%5Bfield%5D=Order&sort%5B0%5D%5Bdirection%5D=asc`;
   const data = await airtableFetch(url);
 
@@ -230,7 +231,7 @@ export async function getPlaylistSongs(playlistId: string): Promise<PlaylistSong
     if (sid) songIds.push(sid);
     return {
       id: rec.id,
-      playlistId: f.Playlist?.[0] || '',
+      playlistId: playlistId,
       songId: sid,
       order: f.Order || 0,
     };
