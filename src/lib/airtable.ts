@@ -11,10 +11,11 @@ const headers = {
 
 async function airtableFetch(url: string, options?: RequestInit) {
   const isGet = !options?.method || options.method === 'GET';
-  const res = await fetch(url, {
+  const fetchUrl = isGet ? url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now() : url;
+  const res = await fetch(fetchUrl, {
     ...options,
     headers: { ...headers, ...options?.headers },
-    ...(isGet ? { next: { revalidate: 30 } } : {}),
+    ...(isGet ? { next: { revalidate: 5 } } : {}),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
